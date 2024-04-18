@@ -11,16 +11,10 @@ import json
 from pymongo import MongoClient
 import pymongo
 import pandas as pd
-from plotly import tools
-import plotly.offline as py
-import plotly.graph_objs as go
-import plotly.express as px
-import plotly.figure_factory as ff
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sqlalchemy import create_engine
-import psycopg2
-from psycopg2 import Error
+
 
 def csv_to_json(csv_file_path):
     data = []
