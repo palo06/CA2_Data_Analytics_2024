@@ -16,7 +16,8 @@ import plotly.offline as py
 import plotly.graph_objs as go
 import plotly.express as px
 import plotly.figure_factory as ff
-
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 def csv_to_json(csv_file_path):
     data = []
@@ -142,26 +143,105 @@ print(df.shape)
 
 #Renaming variables
 df=df.rename(columns={"Statistic Label":"House_Type"})
+print(df.info())
+print(df.describe())
 
-#Numerical
-df.hist(column=["VALUE","Q","Year"] )
 
-#Not numerical
-fig = px.histogram(df, x="Statistic Label",color="Statistic Label")
-fig.update_layout(
-    title_text="Statistic Label", # title of plot
-    xaxis_title_text="Statistic Label", # xaxis label
-    yaxis_title_text='Count', # yaxis label
-    bargap=0.2, 
-    bargroupgap=0.1
-)
-fig.show()
-fig = px.histogram(df, x="Area",color="Area")
-fig.update_layout(
-    title_text="Area", # title of plot
-    xaxis_title_text="Area", # xaxis label
-    yaxis_title_text='Count', # yaxis label
-    bargap=0.2, 
-    bargroupgap=0.1
-)
-fig.show()
+
+# Plot histogram for 'VALUE'
+plt.figure(figsize=(8, 6))
+plt.hist(df['VALUE'], bins=20, color='blue', alpha=0.7)
+plt.xlabel('VALUE')
+plt.ylabel('Frequency')
+plt.title('Histogram of VALUE')
+plt.grid(True)
+plt.show()
+
+# Plot histogram for 'Q'
+plt.figure(figsize=(8, 6))
+plt.hist(df['Q'], bins=20, color='red', alpha=0.7)
+plt.xlabel('Q')
+plt.ylabel('Frequency')
+plt.title('Histogram of Q')
+plt.grid(True)
+plt.show()
+
+# Plot histogram for 'Year'
+plt.figure(figsize=(8, 6))
+plt.hist(df['Year'], bins=20, color='green', alpha=0.7)
+plt.xlabel('Year')
+plt.ylabel('Frequency')
+plt.title('Histogram of Year')
+plt.grid(True)
+plt.show()
+
+
+# Plot histogram for 'House Type'
+plt.figure(figsize=(8, 6))
+plt.hist(df['House_Type'], bins=20, color='purple', alpha=0.7)
+plt.xlabel('House_Type')
+plt.ylabel('Frequency')
+plt.title('Histogram of House_Type')
+plt.grid(True)
+plt.show()
+
+# Plot histogram for 'Area'
+plt.figure(figsize=(8, 6))
+plt.hist(df['Area'], bins=20, color='yellow', alpha=0.7)
+plt.xlabel('Area')
+plt.ylabel('Area')
+plt.title('Histogram of Area')
+plt.grid(True)
+plt.show()
+
+# Replace labels in the "Statistic Label" column
+df['House_Type'] = df['House_Type'].replace({
+    'New House Prices': 1,
+    'Second Hand House Prices': 2
+})
+
+# Replace labels in the "Area" column
+df['Area'] = df['Area'].replace({
+    'Dublin': 1,
+    'Cork': 2,
+    'Galway': 3,
+    'Limerick': 4,
+    'Waterford': 5,
+    'Other areas': 6,
+    'National': 7
+})
+
+print(df.info())
+
+# Convert 'House_Type' column to integers
+df['House_Type'] = df['House_Type'].astype('category').cat.codes
+
+# Convert 'Area' column to integers
+df['Area'] = df['Area'].astype('category').cat.codes
+
+# Print the updated DataFrame
+print(df)
+
+# Selecting only the columns with numerical data types
+numerical_df = df[['VALUE', 'Q', 'Year', 'House_Type', 'Area']]
+
+# Convert 'House_Type' column to integers
+numerical_df['House_Type'] = df['House_Type'].astype('category').cat.codes
+
+# Convert 'Area' column to integers
+numerical_df['Area'] = df['Area'].astype('category').cat.codes
+
+# Print the updated DataFrame
+print(numerical_df)
+
+# Calculating the correlation matrix
+correlation_matrix = numerical_df.corr()
+
+print(correlation_matrix)
+
+
+# Plotting the correlation matrix as a heatmap
+plt.figure(figsize=(10, 8))
+sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f", linewidths=0.5)
+plt.title('Correlation Matrix')
+plt.show()
