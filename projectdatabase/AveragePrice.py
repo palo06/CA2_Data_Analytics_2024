@@ -18,6 +18,9 @@ import plotly.express as px
 import plotly.figure_factory as ff
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sqlalchemy import create_engine
+import psycopg2
+from psycopg2 import Error
 
 def csv_to_json(csv_file_path):
     data = []
@@ -121,6 +124,9 @@ df['Year'] = df['TLIST(Q1)'].astype(str).str[:-1].astype(int)
 # Drop the specified columns
 columns_to_drop = ["UNIT", "TLIST(Q1)", "Quarter", "C02343V02817"]
 df = df.drop(columns=columns_to_drop)
+# Drop the '_id' and 'STATISTIC' columns
+columns_to_drop = ['_id', 'ï»¿"STATISTIC"']
+df = df.drop(columns=columns_to_drop)
 
 
 
@@ -148,52 +154,6 @@ print(df.describe())
 
 
 
-# Plot histogram for 'VALUE'
-plt.figure(figsize=(8, 6))
-plt.hist(df['VALUE'], bins=20, color='blue', alpha=0.7)
-plt.xlabel('VALUE')
-plt.ylabel('Frequency')
-plt.title('Histogram of VALUE')
-plt.grid(True)
-plt.show()
-
-# Plot histogram for 'Q'
-plt.figure(figsize=(8, 6))
-plt.hist(df['Q'], bins=20, color='red', alpha=0.7)
-plt.xlabel('Q')
-plt.ylabel('Frequency')
-plt.title('Histogram of Q')
-plt.grid(True)
-plt.show()
-
-# Plot histogram for 'Year'
-plt.figure(figsize=(8, 6))
-plt.hist(df['Year'], bins=20, color='green', alpha=0.7)
-plt.xlabel('Year')
-plt.ylabel('Frequency')
-plt.title('Histogram of Year')
-plt.grid(True)
-plt.show()
-
-
-# Plot histogram for 'House Type'
-plt.figure(figsize=(8, 6))
-plt.hist(df['House_Type'], bins=20, color='purple', alpha=0.7)
-plt.xlabel('House_Type')
-plt.ylabel('Frequency')
-plt.title('Histogram of House_Type')
-plt.grid(True)
-plt.show()
-
-# Plot histogram for 'Area'
-plt.figure(figsize=(8, 6))
-plt.hist(df['Area'], bins=20, color='yellow', alpha=0.7)
-plt.xlabel('Area')
-plt.ylabel('Area')
-plt.title('Histogram of Area')
-plt.grid(True)
-plt.show()
-
 # Replace labels in the "Statistic Label" column
 df['House_Type'] = df['House_Type'].replace({
     'New House Prices': 1,
@@ -211,7 +171,7 @@ df['Area'] = df['Area'].replace({
     'National': 7
 })
 
-print(df.info())
+
 
 # Convert 'House_Type' column to integers
 df['House_Type'] = df['House_Type'].astype('category').cat.codes
@@ -234,14 +194,80 @@ numerical_df['Area'] = df['Area'].astype('category').cat.codes
 # Print the updated DataFrame
 print(numerical_df)
 
+
+
+# PostgreSQL credentials
+username = 'postgres'
+password = '12345678'
+host = 'localhost'  
+port = '5432' 
+database = 'postgres'
+
+# Create a connection string to your PostgreSQL database
+engine = create_engine(f'postgresql://{username}:{password}@{host}:{port}/{database}')
+
+# Store the DataFrame in PostgreSQL
+df.to_sql('average_prices', engine, if_exists='replace', index=False)
+
+# Confirming that the DataFrame has been stored in PostgreSQL by reading it back
+df_from_sql = pd.read_sql_table('average_prices', engine)
+print(df_from_sql.head())  # Display the first few rows of the DataFrame read from PostgreSQL
+
+
+# Plot histogram for 'VALUE'
+plt.figure(figsize=(8, 6))
+plt.hist(df_from_sql['VALUE'], bins=20, color='blue', alpha=0.7)
+plt.xlabel('VALUE')
+plt.ylabel('Frequency')
+plt.title('Histogram of VALUE')
+plt.grid(True)
+plt.show()
+
+# Plot histogram for 'Q'
+plt.figure(figsize=(8, 6))
+plt.hist(df_from_sql['Q'], bins=20, color='red', alpha=0.7)
+plt.xlabel('Q')
+plt.ylabel('Frequency')
+plt.title('Histogram of Q')
+plt.grid(True)
+plt.show()
+
+# Plot histogram for 'Year'
+plt.figure(figsize=(8, 6))
+plt.hist(df_from_sql['Year'], bins=20, color='green', alpha=0.7)
+plt.xlabel('Year')
+plt.ylabel('Frequency')
+plt.title('Histogram of Year')
+plt.grid(True)
+plt.show()
+
+
+# Plot histogram for 'House Type'
+plt.figure(figsize=(8, 6))
+plt.hist(df_from_sql['House_Type'], bins=20, color='purple', alpha=0.7)
+plt.xlabel('House_Type')
+plt.ylabel('Frequency')
+plt.title('Histogram of House_Type')
+plt.grid(True)
+plt.show()
+
+# Plot histogram for 'Area'
+plt.figure(figsize=(8, 6))
+plt.hist(df_from_sql['Area'], bins=20, color='orange', alpha=0.7)
+plt.xlabel('Area')
+plt.ylabel('Area')
+plt.title('Histogram of Area')
+plt.grid(True)
+plt.show()
+
 # Calculating the correlation matrix
-correlation_matrix = numerical_df.corr()
+correlation_matrix = df_from_sql.corr()
 
 print(correlation_matrix)
 
+print(df_from_sql.columns)
 
 # Plotting the correlation matrix as a heatmap
 plt.figure(figsize=(10, 8))
 sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f", linewidths=0.5)
 plt.title('Correlation Matrix')
-plt.show()
