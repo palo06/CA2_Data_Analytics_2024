@@ -109,14 +109,9 @@ print("The total number of records by Area is: ",df.groupby("Area")["Area"].coun
 print("The total number of records by UNIT is: ",df.groupby("UNIT")["UNIT"].count(), sep="\n")
 print("The total number of records  by VALUE is: ",df.groupby("VALUE")["VALUE"].count(), sep="\n")
 
-# Split the last digit in column "TLIST(Q1)" and store it in a new column "Q"
-df['Q'] = df['TLIST(Q1)'].astype(str).str[-1].astype(int)
-
-# Store the digits without the last digit in a column "Year"
-df['Year'] = df['TLIST(Q1)'].astype(str).str[:-1].astype(int)
 
 # Drop the specified columns
-columns_to_drop = ["UNIT", "TLIST(Q1)", "Quarter", "C02343V02817"]
+columns_to_drop = ["UNIT", "Quarter", "C02343V02817"]
 df = df.drop(columns=columns_to_drop)
 # Drop the '_id' and 'STATISTIC' columns
 columns_to_drop = ['_id', 'ï»¿"STATISTIC"']
@@ -177,7 +172,7 @@ df['Area'] = df['Area'].astype('category').cat.codes
 print(df)
 
 # Selecting only the columns with numerical data types
-numerical_df = df[['VALUE', 'Q', 'Year', 'House_Type', 'Area']]
+numerical_df = df[['VALUE', 'House_Type', 'Area']]
 
 # Convert 'House_Type' column to integers
 numerical_df['House_Type'] = df['House_Type'].astype('category').cat.codes
@@ -217,23 +212,6 @@ plt.title('Histogram of VALUE')
 plt.grid(True)
 plt.show()
 
-# Plot histogram for 'Q'
-plt.figure(figsize=(8, 6))
-plt.hist(df_from_sql['Q'], bins=20, color='red', alpha=0.7)
-plt.xlabel('Q')
-plt.ylabel('Frequency')
-plt.title('Histogram of Q')
-plt.grid(True)
-plt.show()
-
-# Plot histogram for 'Year'
-plt.figure(figsize=(8, 6))
-plt.hist(df_from_sql['Year'], bins=20, color='green', alpha=0.7)
-plt.xlabel('Year')
-plt.ylabel('Frequency')
-plt.title('Histogram of Year')
-plt.grid(True)
-plt.show()
 
 
 # Plot histogram for 'House Type'
