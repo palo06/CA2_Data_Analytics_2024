@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
 Created on Tue Apr 16 21:22:24 2024
 
 @author: maria
@@ -11,9 +9,31 @@ import json
 from pymongo import MongoClient
 import pymongo
 import pandas as pd
+from plotly import tools
+import plotly.offline as py
+import plotly.graph_objs as go
+import plotly.express as px
+import plotly.figure_factory as ff
+import requests
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sqlalchemy import create_engine
+import plotly.graph_objs as go
+
+# Function to fetch CSV data from URL and save it locally
+def fetch_csv_from_url(url, filename):
+    response = requests.get(url)
+    with open(filename, 'wb') as f:
+        f.write(response.content)
+
+# URL of the CSV file
+csv_url = 'https://ws.cso.ie/public/api.restful/PxStat.Data.Cube_API.ReadDataset/HSQ06/CSV/1.0/en'
+
+# Name of the file to save locally
+csv_file_path = 'AveragePrice.csv'
+
+# Fetch CSV data from URL and save it locally
+fetch_csv_from_url(csv_url, csv_file_path)
 
 
 def csv_to_json(csv_file_path):
@@ -110,9 +130,11 @@ print("The total number of records by UNIT is: ",df.groupby("UNIT")["UNIT"].coun
 print("The total number of records  by VALUE is: ",df.groupby("VALUE")["VALUE"].count(), sep="\n")
 
 
+
 # Drop the specified columns
 columns_to_drop = ["UNIT", "Quarter", "C02343V02817"]
 df = df.drop(columns=columns_to_drop)
+
 # Drop the '_id' and 'STATISTIC' columns
 columns_to_drop = ['_id', 'ï»¿"STATISTIC"']
 df = df.drop(columns=columns_to_drop)
@@ -121,6 +143,12 @@ df = df.drop(columns=columns_to_drop)
 
 # Convert the "VALUE" column to integer, handling errors by coercing invalid values to NaN
 df['VALUE'] = pd.to_numeric(df['VALUE'], errors='coerce').astype('Int64')
+
+# Convert 'House_Type' column to categorical
+df['Statistic Label'] = df['Statistic Label'].astype('category')
+
+# Convert 'Area' column to categorical
+df['Area'] = df['Area'].astype('category')
 
 # Print a summary of the DataFrame
 print(df.info())
