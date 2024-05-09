@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
 Created on Wed May  8 21:23:18 2024
 
 @author: maria
@@ -34,7 +32,8 @@ database = 'postgres'
 mongodb_uri = 'mongodb://localhost:27017'
 mongodb_name = ''
 
-#Code for Earnings database
+#Code for dataset "Earnings"
+
 def pull_data():
     url = "https://ws.cso.ie/public/api.jsonrpc?data=%7B%22jsonrpc%22:%222.0%22," \
           "%22method%22:%22PxStat.Data.Cube_API.ReadDataset%22,%22params%22:%7B%22class%22:%22query%22," \
@@ -177,7 +176,7 @@ print(earningsdf_from_sql.head())  # Display the first few rows of the DataFrame
         
         
       
-#Code for AveragePrice
+#Code for dataset "Average_Prices"
             
 # Function to fetch CSV data from URL and save it locally
 def fetch_csv_from_url(url, filename):
@@ -291,7 +290,7 @@ print("The total number of records  by VALUE is: ",df.groupby("VALUE")["VALUE"].
 
 
 # Drop the specified columns
-columns_to_drop = ["UNIT", "C02343V02817"]
+columns_to_drop = ["UNIT","TLIST(Q1)", "C02343V02817"]
 df = df.drop(columns=columns_to_drop)
 
 # Drop the '_id' and 'STATISTIC' columns
@@ -347,12 +346,7 @@ df['Area'] = df['Area'].replace({
 })
 
 
-# Convert non-numeric data to numeric (if possible) for correlation computation
 
-df['TLIST(Q1)'] = pd.to_numeric(df['TLIST(Q1)'], errors='coerce')
-# This will convert non-numeric values to NaN, you can handle NaN values as per your requirement
-
-#
 
 # Convert 'Area' column to integers
 df['Area'] = df['Area'].astype('category').cat.codes
@@ -406,7 +400,23 @@ df.to_sql('averageprices', engine, if_exists='replace', index=False)
 df_from_sql = pd.read_sql_table('averageprices', engine)
 print(df_from_sql.head())  # Display the first few rows of the DataFrame read from PostgreSQL
 
-#Code CA2
+#Code for dataset " Interests"
+
+# Function to fetch CSV data from URL and save it locally
+def fetch_csv_from_url(url, filename):
+    response = requests.get(url)
+    with open(filename, 'wb') as f:
+        f.write(response.content)
+
+# URL of the CSV file
+csv_url = 'https://ws.cso.ie/public/api.restful/PxStat.Data.Cube_API.ReadDataset/FIM09/CSV/1.0/en'
+
+# Name of the file to save locally
+csv_file_path = 'FIM09.20240413155658.csv'
+
+# Fetch CSV data from URL and save it locally
+fetch_csv_from_url(csv_url, csv_file_path)
+
 
 fname=os.path.join("FIM09.20240413155658.csv")
 interestdf=pd.read_csv(fname, index_col=None)
@@ -598,3 +608,22 @@ print(merged_df.head())
 
 # Export the merged DataFrame to a CSV file
 merged_df.to_csv('merged_data.csv', index=False)
+
+
+#Merging Average Prices & Earnings
+
+engine = create_engine('postgresql://postgres:12345678@localhost:5432/postgres')
+
+sql_query = """
+SELECT *
+FROM averageprices
+JOIN structureddata ON averageprices."Quarter" = structureddata."quarter"
+"""
+
+try:
+    merged_df = pd.read_sql_query(sql_query, engine)
+    print(merged_df.head())
+    merged_df.to_csv('mergeddata2.csv', index=False)
+    print("CSV file exported successfully.")
+except Exception as e:
+    print("Error exporting CSV file:", e)
