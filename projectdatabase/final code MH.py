@@ -1,24 +1,36 @@
-Created on Wed May  8 21:23:18 2024
-
 @author: maria
 @author: angeliki
 @author: Paloma
 """
 
+import requests
 import csv
 import json
+import sqlalchemy
+import numpy as np
 from pymongo import MongoClient
 import pymongo
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sqlalchemy import create_engine, inspect
-import sqlalchemy
 import os
 import psycopg2
 from psycopg2 import Error
 import plotly.graph_objects as go
-import requests
+from statsmodels.stats.stattools import durbin_watson
+import statsmodels.api as sm
+import scipy.stats as stats
+import statsmodels.stats.outliers_influence as oi
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.tree import DecisionTreeRegressor
+
+
 
 
 # PostgreSQL universal credentials
@@ -586,7 +598,7 @@ verify_table_existence('interests')
 # Defining engine
 engine = create_engine('postgresql://postgres:12345678@localhost:5432/postgres')
 
-# SQL query to join the tables based on the common column "quarter"
+# SQL query to join the tables based on the common column "quarter" (Interests& Average_ Price)
 sql_query = """
 SELECT *
 FROM averageprices
@@ -594,20 +606,18 @@ JOIN interests ON averageprices."Quarter" = interests.quarter_year
 """
 
 # Execute the SQL query and load the result into a DataFrame
-merged_df = pd.read_sql_query(sql_query, engine)
+interests_price_merged_df = pd.read_sql_query(sql_query, engine)
 
+# Drop the "Quarter" column from the DataFrame
+interests_price_merged_df.drop(columns=['Quarter'], inplace=True)
 # Print the first few rows of the merged DataFrame
-print(merged_df.head())
+print(interests_price_merged_df.head())
 
 
 # Execute the SQL query and read the result into a DataFrame
-merged_df = pd.read_sql_query(sql_query, engine)
+interests_price_merged_df = pd.read_sql_query(sql_query, engine)
 
-# Display the first few rows of the merged DataFrame
-print(merged_df.head())
 
-# Export the merged DataFrame to a CSV file
-merged_df.to_csv('merged_data.csv', index=False)
 
 
 #Merging Average Prices & Earnings
@@ -623,7 +633,371 @@ JOIN structureddata ON averageprices."Quarter" = structureddata."quarter"
 try:
     merged_df = pd.read_sql_query(sql_query, engine)
     print(merged_df.head())
-    merged_df.to_csv('mergeddata2.csv', index=False)
-    print("CSV file exported successfully.")
 except Exception as e:
     print("Error exporting CSV file:", e)
+    
+
+# Drop the "Quarter" column from the DataFrame
+merged_df.drop(columns=['Quarter'], inplace=True)
+
+interests_price_merged_df.rename(columns={'VALUE': 'House_Price','Statistic Label': 'House_Type'}, inplace=True)
+merged_df.rename(columns={'VALUE': 'House_Price', 'value': 'earnings_value','Statistic Label': 'House_Type'}, inplace=True)
+
+    
+
+
+
+# Visualizations for Interests_Price
+
+# Histogram for numerical columns
+numerical_columns = interests_price_merged_df.select_dtypes(include=['int64', 'float64']).columns
+
+for column in numerical_columns:
+    plt.figure(figsize=(8, 6))
+    sns.histplot(data=interests_price_merged_df, x=column, kde=True)
+    plt.title(f'Histogram of {column}')
+    plt.xlabel(column)
+    plt.ylabel('Frequency')
+    plt.show()
+
+# Count plot for categorical columns
+categorical_columns = interests_price_merged_df.select_dtypes(include=['object']).columns
+
+for column in categorical_columns:
+    plt.figure(figsize=(8, 6))
+    sns.countplot(data=interests_price_merged_df, x=column)
+    plt.title(f'Count Plot of {column}')
+    plt.xlabel(column)
+    plt.ylabel('Count')
+    plt.xticks(rotation=45)
+    plt.show()
+    
+# Select only numeric columns
+numeric_columns = interests_price_merged_df.select_dtypes(include=['int64', 'float64'])
+
+# Compute the correlation matrix
+correlation_matrix = numeric_columns.corr()
+
+# Plotting the heatmap
+plt.figure(figsize=(10, 8))
+sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f", linewidths=0.5)
+plt.title('Correlation Matrix')
+plt.show()
+
+
+
+#Linear Regression to predict House (Using the dataset Interests & House Price)
+#Model 1
+# Select predictor variables (X) and target variable (y)
+X = interests_price_merged_df[['House_Type', 'Area', 'year', 'month','cbank_rediscount','ebill_yield','buildings_mortgage']]  # Predictor variables
+y = interests_price_merged_df['House_Price']  # Target variable
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Create and fit the linear regression model
+model = LinearRegression()
+model.fit(X_train, y_train)
+
+# Make predictions on the test set
+y_pred = model.predict(X_test)
+
+# Evaluate the model
+mse = mean_squared_error(y_test, y_pred)
+print("Mean Squared Error:", mse)
+
+# Print the coefficients
+print("Intercept:", model.intercept_)
+print("Coefficients:", model.coef_)
+
+#Multilinear Regression to predict House (Using the dataset Interests & House Price)
+
+
+# Model 2
+# Independent variables
+independent_variables = ['House_Type', 'Area', 'year', 'month', 'cbank_rediscount', 'ebill_yield', 'buildings_mortgage']
+
+# Add a constant term to the independent variables matrix (required for the intercept)
+X = sm.add_constant(interests_price_merged_df[independent_variables])
+
+# Dependent variable
+y = interests_price_merged_df['House_Price']
+
+# Fit the multilinear regression model
+model = sm.OLS(y, X).fit()
+
+# Print the summary of the model
+print(model.summary())
+
+# Assumption 1: Checking linearity
+for column in independent_variables:
+    plt.figure(figsize=(8, 6))
+    plt.scatter(interests_price_merged_df[column], interests_price_merged_df['House_Price'], alpha=0.5)
+    plt.title(f'Scatterplot of House_Price vs {column}')
+    plt.xlabel(column)
+    plt.ylabel('House_Price')
+    plt.grid(True)
+    plt.show()
+
+# Assumption 2: Checking multicollinearity
+correlation_matrix = interests_price_merged_df[independent_variables].corr()
+plt.figure(figsize=(10, 8))
+sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f", linewidths=0.5)
+plt.title('Correlation Matrix of Independent Variables')
+plt.show()
+
+# Assumption 3 & 4: Checking homoscedasticity and independence of residuals
+residuals = model.resid
+y_pred = model.predict(X)
+plt.figure(figsize=(8, 6))
+plt.scatter(y_pred, residuals, alpha=0.5)
+plt.title('Residuals vs Predicted Values')
+plt.xlabel('Predicted Values')
+plt.ylabel('Residuals')
+plt.grid(True)
+plt.show()
+
+# Durbin-Watson test for autocorrelation
+durbin_watson_statistic = durbin_watson(residuals)
+print("Durbin-Watson statistic:", durbin_watson_statistic)
+
+# Assumption 5: Checking normality of residuals using Q-Q plot
+sm.qqplot(residuals, line='s', color='skyblue')
+plt.title('Q-Q Plot of Residuals')
+plt.xlabel('Theoretical Quantiles')
+plt.ylabel('Sample Quantiles')
+plt.show()
+
+# Assumption 6: Checking influential cases using Cook's distance
+influence = model.get_influence()
+cooks_distance = influence.cooks_distance[0]
+
+plt.figure(figsize=(8, 6))
+plt.stem(cooks_distance, markerfmt=",", linefmt='b-', basefmt='r-')
+plt.title("Cook's Distance Plot")
+plt.xlabel("Observation Index")
+plt.ylabel("Cook's Distance")
+plt.show()
+
+# Identify and remove influential cases
+influential_cases = (cooks_distance > 4 / len(X))  # Threshold for influential cases
+influential_cases_indices = X.index[influential_cases]
+new_filtered_df = interests_price_merged_df.drop(influential_cases_indices)
+
+# Print the shape of the filtered DataFrame after removing influential cases
+print("Shape of filtered DataFrame:", new_filtered_df.shape)
+
+# Model 3: Removing 'cbank_rediscount' and 'ebill_yield' variables
+# Independent variables
+independent_variables = ['House_Type', 'Area', 'year', 'month', 'buildings_mortgage']
+
+# Add a constant term to the independent variables matrix (required for the intercept)
+X = sm.add_constant(new_filtered_df[independent_variables])
+
+# Dependent variable
+y = new_filtered_df['House_Price']
+
+# Fit the multilinear regression model
+model = sm.OLS(y, X).fit()
+
+# Print the summary of the model
+print(model.summary())
+
+# Novelty to the prediction: Implementing Ensemble learninbg for house price prediction using Random Forest algorithm
+
+# Select only numerical columns from interests_price_merged_df
+numerical_columns = interests_price_merged_df.select_dtypes(include=[np.number])
+
+X = numerical_columns.drop('House_Price', axis=1)  # Features
+y = interests_price_merged_df['House_Price']  # Target variable
+
+# Reset index to ensure alignment
+X.reset_index(drop=True, inplace=True)
+y.reset_index(drop=True, inplace=True)
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Convert y to a DataFrame
+y_train_df = pd.DataFrame(y_train, columns=['House_Price'])
+
+# Define base models
+base_models = [
+    RandomForestRegressor(n_estimators=100, random_state=42),
+    GradientBoostingRegressor(n_estimators=100, random_state=42),
+    DecisionTreeRegressor(random_state=42)
+]
+
+# Train base models
+predictions = []
+for model in base_models:
+    model.fit(X_train, y_train_df.values.ravel())  # Reshape y_train_df
+    predictions.append(model.predict(X_test))
+
+# Combine predictions using averaging
+ensemble_predictions = np.mean(predictions, axis=0)
+
+# Evaluate the ensemble model
+ensemble_mse = mean_squared_error(y_test, ensemble_predictions)
+print("Ensemble Mean Squared Error:", ensemble_mse)
+
+# Visualizations for Earnings_Price
+# Histogram for numerical columns
+numerical_columns = merged_df.select_dtypes(include=['int64', 'float64']).columns
+
+for column in numerical_columns:
+    plt.figure(figsize=(8, 6))
+    sns.histplot(data=merged_df, x=column, kde=True)
+    plt.title(f'Histogram of {column}')
+    plt.xlabel(column)
+    plt.ylabel('Frequency')
+    plt.show()
+
+# Count plot for categorical columns
+categorical_columns = merged_df.select_dtypes(include=['object']).columns
+
+for column in categorical_columns:
+    plt.figure(figsize=(8, 6))
+    sns.countplot(data=merged_df, x=column)
+    plt.title(f'Count Plot of {column}')
+    plt.xlabel(column)
+    plt.ylabel('Count')
+    plt.xticks(rotation=45)
+    plt.show()
+    
+# Select only numeric columns
+numeric_columns = merged_df.select_dtypes(include=['int64', 'float64'])
+
+# Compute the correlation matrix
+correlation_matrix = numeric_columns.corr()
+
+# Plotting the heatmap
+plt.figure(figsize=(10, 8))
+sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f", linewidths=0.5)
+plt.title('Correlation Matrix')
+plt.show()
+
+#Linear Regression to predict House (Using the dataset Earnings & House Price)
+#Model 1
+# Select predictor variables (X) and target variable (y)
+X = merged_df[['House_Type', 'Area','earnings_value']]  # Predictor variables
+y = merged_df['House_Price']  # Target variable
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Create and fit the linear regression model
+model = LinearRegression()
+model.fit(X_train, y_train)
+
+# Make predictions on the test set
+y_pred = model.predict(X_test)
+
+# Evaluate the model
+mse = mean_squared_error(y_test, y_pred)
+print("Mean Squared Error:", mse)
+
+# Print the coefficients
+print("Intercept:", model.intercept_)
+print("Coefficients:", model.coef_)
+
+#Multilinear Regression to predict House (Using the dataset Earnings & House Price)
+
+
+# Model 2
+# Independent variables
+independent_variables = ['House_Type', 'Area','earnings_value']
+
+# Add a constant term to the independent variables matrix (required for the intercept)
+X = sm.add_constant(merged_df[independent_variables])
+
+# Dependent variable
+y = merged_df['House_Price']
+
+# Fit the multilinear regression model
+model = sm.OLS(y, X).fit()
+
+# Print the summary of the model
+print(model.summary())
+
+# Assumption 1: Checking linearity
+for column in independent_variables:
+    plt.figure(figsize=(8, 6))
+    plt.scatter(merged_df[column], merged_df['House_Price'], alpha=0.5)
+    plt.title(f'Scatterplot of House_Price vs {column}')
+    plt.xlabel(column)
+    plt.ylabel('House_Price')
+    plt.grid(True)
+    plt.show()
+
+# Assumption 2: Checking multicollinearity
+correlation_matrix = merged_df[independent_variables].corr()
+plt.figure(figsize=(10, 8))
+sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f", linewidths=0.5)
+plt.title('Correlation Matrix of Independent Variables')
+plt.show()
+
+# Assumption 3 & 4: Checking homoscedasticity and independence of residuals
+residuals = model.resid
+y_pred = model.predict(X)
+plt.figure(figsize=(8, 6))
+plt.scatter(y_pred, residuals, alpha=0.5)
+plt.title('Residuals vs Predicted Values')
+plt.xlabel('Predicted Values')
+plt.ylabel('Residuals')
+plt.grid(True)
+plt.show()
+
+# Durbin-Watson test for autocorrelation
+durbin_watson_statistic = durbin_watson(residuals)
+print("Durbin-Watson statistic:", durbin_watson_statistic)
+
+# Assumption 5: Checking normality of residuals using Q-Q plot
+sm.qqplot(residuals, line='s', color='skyblue')
+plt.title('Q-Q Plot of Residuals')
+plt.xlabel('Theoretical Quantiles')
+plt.ylabel('Sample Quantiles')
+plt.show()
+
+# Assumption 6: Checking influential cases using Cook's distance
+influence = model.get_influence()
+cooks_distance = influence.cooks_distance[0]
+
+plt.figure(figsize=(8, 6))
+plt.stem(cooks_distance, markerfmt=",", linefmt='b-', basefmt='r-')
+plt.title("Cook's Distance Plot")
+plt.xlabel("Observation Index")
+plt.ylabel("Cook's Distance")
+plt.show()
+
+# Identify and remove influential cases
+influential_cases = (cooks_distance > 4 / len(X))  # Threshold for influential cases
+influential_cases_indices = X.index[influential_cases]
+new_earnings_filtered_df = merged_df.drop(influential_cases_indices)
+
+# Print the shape of the filtered DataFrame after removing influential cases
+print("Shape of filtered DataFrame:", new_earnings_filtered_df.shape)
+
+# Model 3: Using the daframe without the influential cases
+# Independent variables
+independent_variables = ['House_Type', 'Area','earnings_value']
+
+# Add a constant term to the independent variables matrix (required for the intercept)
+X = sm.add_constant(new_earnings_filtered_df[independent_variables])
+
+# Dependent variable
+y = new_earnings_filtered_df['House_Price']
+
+# Fit the multilinear regression model
+model = sm.OLS(y, X).fit()
+
+# Print the summary of the model
+print(model.summary())
+
+
+
+
+
+# Export the merged DataFrames to a CSV file
+interests_price_merged_df.to_csv('merged_data_ interests_house_price.csv', index=False) #--> Interests & House_Price
+merged_df.to_csv('merged_data_earnings_house_price.csv', index=False) #---> Earnings & House_Price
