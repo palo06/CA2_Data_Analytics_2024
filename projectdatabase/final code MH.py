@@ -1,3 +1,4 @@
+"""
 @author: maria
 @author: angeliki
 @author: Paloma
@@ -31,8 +32,6 @@ from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.tree import DecisionTreeRegressor
 
 
-
-
 # PostgreSQL universal credentials
 username = 'postgres'
 password = '12345678'
@@ -63,6 +62,42 @@ def pull_data():
     else:
         print("Failed to fetch the file:", response.status_code)
         return 0
+
+
+def average_earnings_per_week_per_quarter(value_dict_list):
+
+    count_entries = 0
+    accumulated_value = 0
+    quarter = ""
+    average_earnings_dict_list = []
+
+    for each in value_dict_list:
+
+        if each['earning_category'] != "Earnings Per Week":
+            continue
+
+        if quarter != each['quarter'] and quarter != "":
+            average_earnings_dict_list.append({
+                'quarter': quarter,
+                'value': format(accumulated_value / count_entries, '.2f')
+            })
+            count_entries = 1
+            quarter = each['quarter']
+            accumulated_value = each['value']
+        elif quarter == "":
+            quarter = each['quarter']
+            accumulated_value = each['value']
+            count_entries += 1
+        else:
+            accumulated_value += each['value']
+            count_entries += 1
+    else:
+        average_earnings_dict_list.append({
+            'quarter': quarter,
+            'value': format(accumulated_value / count_entries, '.2f')
+        })
+
+    return average_earnings_dict_list
 
 def structured_data(data: str):
     value_dictionary_list = []
@@ -119,6 +154,8 @@ def structured_data(data: str):
                 value_dictionary_list.append(temp_dict)
                 count += 1
 
+    value_dictionary_list = average_earnings_per_week_per_quarter(value_dictionary_list)
+
     return value_dictionary_list, earnings_category_dict_list, quarters_dict_list, sector_dict_list
 
 def mongodb_update(data, mongodb_uri: str, database_name: str, collection_name: str):
@@ -143,6 +180,8 @@ def save_to_json_file(data, filename):
     print("JSON list saved to", file_path)
 
     return 1
+
+
 # Pull data from API
 data = pull_data()
 
@@ -183,11 +222,6 @@ earningsdf_from_sql = pd.read_sql_table('structureddata', engine)
 print(earningsdf_from_sql.head())  # Display the first few rows of the DataFrame read from PostgreSQL
 
 
-    
-
-        
-        
-      
 #Code for dataset "Average_Prices"
             
 # Function to fetch CSV data from URL and save it locally
@@ -306,7 +340,7 @@ columns_to_drop = ["UNIT","TLIST(Q1)", "C02343V02817"]
 df = df.drop(columns=columns_to_drop)
 
 # Drop the '_id' and 'STATISTIC' columns
-columns_to_drop = ['_id', 'ï»¿"STATISTIC"']
+columns_to_drop = ['_id', '\ufeff\"STATISTIC\"']
 df = df.drop(columns=columns_to_drop)
 
 
@@ -607,6 +641,8 @@ JOIN interests ON averageprices."Quarter" = interests.quarter_year
 
 # Execute the SQL query and load the result into a DataFrame
 interests_price_merged_df = pd.read_sql_query(sql_query, engine)
+
+
 
 # Drop the "Quarter" column from the DataFrame
 interests_price_merged_df.drop(columns=['Quarter'], inplace=True)
